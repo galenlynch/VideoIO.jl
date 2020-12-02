@@ -1,0 +1,11 @@
+[deps]
+CEnum = "fa961155-64e5-5f13-b03f-caf6b980ea82"
+Clang = "40e3b903-d033-50b4-a0cc-940c62c95e31"
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
+FFMPEG = "c87230d0-a227-11e9-1b43-d7ebe4e7570a"
+Match = "7eb4fadd-790c-5f42-8a69-bfa0b872bfbf"
+
+[compat]
+Clang = "0.7"
+DataStructures = "0.17"
+Match = "1"

@@ -1,15 +1,15 @@
 Wrapping ffmpeg libraries
 -------------------------------
 
-Wrapping ffmpeg is currently achieved using the wrap_libav_split.jl
-script, which uses Clang.jl.
+Wrapping ffmpeg is currently achieved using the gen.jl script, which uses
+Clang.jl.
 
 ============== Cut here ================
 
 Steps after that are typically:
 
 1. mkdir ffmpeg2.3 && cd ffmpeg2.3  # for example
-2. julia ../wrap_libav_split.jl /usr/local/include
+2. julia --project=../ ../gen.jl /usr/local/include
 
 where /usr/local/include should be base of the location of the headers
 you wish to wrap.
@@ -41,8 +41,6 @@ fully or partially--try something like
    patch -p1 < ../patch2
 
 and fix what doesn't apply, if necessary.
-
-
 
 If you wrap a version of the library not already included in VideoIO.jl, please
 submit it as a pull request!

@@ -1,4 +1,5 @@
-
+import FFMPEG
+import FFMPEG_jll
 import Clang.wrap_c
 import DataStructures: DefaultDict
 import Base.Meta.isexpr
@@ -8,7 +9,6 @@ include("../src/init.jl")
 
 indexh         = joinpath(Sys.BINDIR, "../include/clang-c/Index.h")
 clang_includes = String[joinpath(Sys.BINDIR, "../lib/clang/7.0.0/include"), joinpath(dirname(indexh), "..")]
-#clang_includes = String[joinpath(JULIA_HOME, "../lib/clang/3.3/include"), joinpath(dirname(indexh), "..")]
 
 strpack_structs = Set{Symbol}()
 
@@ -35,10 +35,17 @@ function repr_jl(t::Union{cindex.Enum, cindex.CXType_Elaborated})
 end
 
 # Allow root to be specified as the first argument
-if isempty(ARGS)
-    root = "/usr/local/include"
-else
-    root = ARGS[1]
+root = joinpath(FFMPEG_jll.artifact_dir, "include")
+
+function vio_lib_name_mapping(lib)
+    name = lib[4:end]
+    formatted = uppercase(name[1:3]) * name[4:end]
+    if name[3:end] in Set(["filter", "codec"])
+        plural = formatted * 's'
+    else
+        plural = formatted
+    end
+    plural
 end
 
 const av_libs  =  ["libavutil"
@@ -53,13 +60,12 @@ const av_libs  =  ["libavutil"
 
 const av_lib_ver  =  []
 for lib in av_libs
-    try
-        name = lib[4:end]
-        ver = eval(Symbol("_"*name*"_version"))()
-        dir = eval(Symbol(name*"_dir"))
-        push!(av_lib_ver, (lib,ver,dir))
-    catch
-    end
+    name = lib[4:end]
+    ver_fname = Symbol("_"*name*"_version")
+    !isdefined(FFMPEG, ver_fname) && continue
+    ver = getproperty(FFMPEG, ver_fname)()
+    dir = vio_lib_name_mapping(lib)
+    push!(av_lib_ver, (lib,ver,dir))
 end
 
 const av_hpath  =  [joinpath(root, lib) for (lib,ver,dir) in av_lib_ver]
@@ -73,7 +79,7 @@ for i in ["lzo.h", "md5.h", "parse.h", "sha.h", "vda.h", "bprint.h",
           "intreadwrite.h", "intfloat_readwrite.h", "lfg.h", "macros.h",
           "mathematics.h", "murmur3.h", "parseutils.h", "random_seed.h",
           "ripemd.h", "sha512.h", "time.h", "timestamp.h", "bswap.h",
-          "error.h", "old_codec_ids.h", "old_pix_fmts.h", "dxva2.h", "avfft.h"]
+          "old_codec_ids.h", "old_pix_fmts.h", "dxva2.h", "avfft.h"]
     ignore_header[i] = true
 end
 
