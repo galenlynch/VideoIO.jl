@@ -6,15 +6,34 @@ import FFMPEG_jll
 const FFMPEG_INCL_PATH = joinpath(FFMPEG_jll.artifact_dir, "include")
 const av_libs = readdir(FFMPEG_INCL_PATH)
 
-const LIBCLANG_INCLUDE = joinpath(dirname(Clang_jll.libclang_path), "..", "include", "clang-c") |> normpath
-const LIBCLANG_HEADERS = [joinpath(LIBCLANG_INCLUDE, header) for header in readdir(LIBCLANG_INCLUDE) if endswith(header, ".h")]
+const LIBCLANG_INCLUDE = joinpath(dirname(Clang_jll.libclang_path), "..",
+                                  "include", "clang-c") |> normpath
+const LIBCLANG_HEADERS = [joinpath(LIBCLANG_INCLUDE, header) for header in
+                          readdir(LIBCLANG_INCLUDE) if endswith(header, ".h")]
+const BASE_WRAPPER_DIR = joinpath(dirname(@__FILE__), "..", "src", "ffmpeg")
+
+function vio_lib_name_mapping(lib)
+    name = lib[4:end]
+    if name == "postproc"
+        plural = uppercase(name[1]) * name[2:end]
+    else
+        formatted = uppercase(name[1:3]) * name[4:end]
+        if name[3:end] in Set(["filter", "codec"])
+            plural = formatted * 's'
+        else
+            plural = formatted
+        end
+    end
+    plural
+end
 
 function wrap_library_api(libname)
     # create a work context
     ctx = DefaultContext()
 
     thislib_path = joinpath(FFMPEG_INCL_PATH, libname)
-    thislib_headers = [joinpath(thislib_path, header) for header in readdir(thislib_path) if endswith(header, ".h")]
+    thislib_headers = [joinpath(thislib_path, header) for header in
+                       readdir(thislib_path) if endswith(header, ".h")]
 
     # parse headers
     parse_headers!(ctx, thislib_headers,
@@ -28,7 +47,9 @@ function wrap_library_api(libname)
     ctx.options["is_struct_mutable"] = false
 
     # write output
-    api_file = joinpath(@__DIR__, libname * "_api.jl")
+    vio_name = vio_lib_name_mapping(libname)
+    dest_dir = normpath(@__DIR__, BASE_WRAPPER_DIR, vio_name, "src")
+    api_file = joinpath(dest_dir, libname * "_api.jl")
     api_stream = open(api_file, "w")
 
     for trans_unit in ctx.trans_units
@@ -44,6 +65,7 @@ function wrap_library_api(libname)
             ctx.children_index = i
             # choose which cursor to wrap
             startswith(child_name, "__") && continue  # skip compiler definitions
+            child_name == "av_builtin_constant_p" && continue # skip wrapped compiler definition
             child_name in keys(ctx.common_buffer) && continue  # already wrapped
             child_header != header && continue  # skip if cursor filename is not in the headers to be wrapped
 
@@ -58,7 +80,7 @@ function wrap_library_api(libname)
     close(api_stream)
 
     # write "common" definitions: types, typealiases, etc.
-    common_file = joinpath(@__DIR__, libname * "_common.jl")
+    common_file = joinpath(dest_dir, libname * "_common.jl")
     open(common_file, "w") do f
         println(f, "# Automatically generated using Clang.jl\n")
         print_buffer(f, dump_to_buffer(ctx.common_buffer))
